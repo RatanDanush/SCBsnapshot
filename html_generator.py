@@ -549,23 +549,32 @@ def generate_weekly_html(data, stories, week_ahead_events, commentary=None,
 
 def html_to_jpeg(html_string):
     """
-    Render HTML to JPEG using WeasyPrint + Pillow.
+    Render HTML to JPEG.
+    Pipeline: WeasyPrint → PDF → PyMuPDF → PNG → Pillow → JPEG.
+    write_png() was removed in WeasyPrint 53+; write_pdf() is the stable output path.
     Returns (jpeg_bytes, error_or_None).
-    Forces a single tall page so the full snapshot renders without pagination.
     """
     try:
         from weasyprint import HTML, CSS
+        import fitz          # PyMuPDF — converts PDF page to raster
         from PIL import Image
         import io
 
-        # Force single tall page (3200px handles most weekly snapshots)
+        # Force a single tall page so the full snapshot fits without pagination
         page_css = CSS(string='@page { size: 660px 3200px; margin: 0; } '
                                'body { max-width: 660px; }')
-        png_data = HTML(string=html_string).write_png(stylesheets=[page_css])
+        pdf_bytes = HTML(string=html_string).write_pdf(stylesheets=[page_css])
 
-        img = Image.open(io.BytesIO(png_data)).convert('RGB')
+        # Rasterise first PDF page at 2× scale for crisp output
+        pdf_doc = fitz.open(stream=pdf_bytes, filetype='pdf')
+        page    = pdf_doc[0]
+        mat     = fitz.Matrix(2, 2)
+        pix     = page.get_pixmap(matrix=mat)
+        png_bytes = pix.tobytes('png')
+        pdf_doc.close()
 
-        # Crop trailing whitespace
+        # Convert to JPEG, crop trailing whitespace
+        img  = Image.open(io.BytesIO(png_bytes)).convert('RGB')
         bbox = img.getbbox()
         if bbox:
             img = img.crop((0, 0, img.width, min(bbox[3] + 30, img.height)))
@@ -574,9 +583,8 @@ def html_to_jpeg(html_string):
         img.save(buf, format='JPEG', quality=92)
         return buf.getvalue(), None
 
-    except ImportError:
-        return None, ('WeasyPrint / Pillow not installed. '
-                      'Add weasyprint and Pillow to requirements.txt '
-                      'and packages.txt to your repo.')
+    except ImportError as e:
+        return None, (f'Missing library: {e}. '
+                      'Ensure weasyprint, PyMuPDF, and Pillow are in requirements.txt.')
     except Exception as e:
         return None, f'JPEG render error: {e}'
