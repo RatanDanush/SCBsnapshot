@@ -472,3 +472,68 @@ Return ONLY a valid JSON array, no markdown fences:
     if isinstance(result, list) and result:
         return result[:2], err2
     return fallback_stories(2, reason=err2 or 'No result'), err2
+
+# ── FX approximate rates (LIGHT, for pre-filling Bloomberg inputs) ─────────────
+
+def get_fx_approximate_rates(api_key, week_start, week_end, selected_fx_pairs):
+    """
+    Search for approximate INR FX rates for the given week to seed Bloomberg inputs.
+    Uses LIGHT tier (gemini-3.1-flash-lite + search) — burns 500 RPD budget.
+
+    Returns (dict {pair: {'open': float, 'close': float}}, error_or_None).
+    Values are indicative only — user must verify with actual Bloomberg prints.
+    """
+    PAIR_DESC = {
+        'usdinr': 'USD/INR spot (Indian rupee per US dollar)',
+        'eurinr': 'EUR/INR (rupee per euro — EURUSD × USDINR)',
+        'gbpinr': 'GBP/INR (rupee per pound — GBPUSD × USDINR)',
+        'jpyinr': 'JPY/INR as INR per 100 JPY (USDINR / USDJPY × 100)',
+        'cnhinr': 'CNH/INR (rupee per offshore yuan — USDINR / USDCNH)',
+    }
+    pairs_text = '\n'.join(
+        f'- {PAIR_DESC[p]}'
+        for p in ['usdinr', 'eurinr', 'gbpinr', 'jpyinr', 'cnhinr']
+        if p in selected_fx_pairs
+    )
+
+    prompt = f"""Search for INR FX rates for the week of {week_start} to {week_end}.
+
+Find the Monday opening rate and Friday closing rate for each pair below.
+Use RBI reference rates, Reuters, or Bloomberg data where available.
+
+Pairs needed:
+{pairs_text}
+
+Return ONLY a valid JSON object, no markdown fences, no explanation:
+{{
+  "usdinr": {{"open": 84.20, "close": 84.65}},
+  "eurinr": {{"open": 91.50, "close": 91.80}},
+  "gbpinr": {{"open": 107.20, "close": 107.90}},
+  "jpyinr": {{"open": 56.40, "close": 56.20}},
+  "cnhinr": {{"open": 11.55, "close": 11.60}}
+}}
+Include only the requested pairs. Use null if genuinely unavailable.
+All values must be floats rounded to 2 decimal places."""
+
+    text, model, elapsed, err = _call_tier(api_key, LIGHT, prompt, use_search=True)
+    if err or not text:
+        return {}, f'FX rates fetch failed ({elapsed}s): {err}'
+
+    result = extract_json(text)
+    if not result or not isinstance(result, dict):
+        return {}, f'FX rates JSON parse failed. Raw: {(text or "")[:200]}'
+
+    clean = {}
+    for pair in selected_fx_pairs:
+        entry = result.get(pair)
+        if not isinstance(entry, dict):
+            continue
+        try:
+            o = entry.get('open')
+            c = entry.get('close')
+            if o is not None and c is not None:
+                clean[pair] = {'open': round(float(o), 2), 'close': round(float(c), 2)}
+        except (TypeError, ValueError):
+            pass
+
+    return clean, (None if clean else 'No valid rates returned from Gemini')

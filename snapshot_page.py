@@ -143,8 +143,36 @@ def _step_config(api_key):
     }
 
     if selected_fx:
-        st.markdown('#### 📊 Bloomberg FX data — week open &amp; close')
-        st.caption('Enter Bloomberg terminal rates. App calculates WoW % change automatically.')
+        col_fx_hdr, col_fx_btn = st.columns([3, 2])
+        col_fx_hdr.markdown('#### 📊 Bloomberg FX data — week open &amp; close')
+        col_fx_hdr.caption('Enter Bloomberg terminal rates. App calculates WoW % change automatically.')
+
+        prefill_clicked = col_fx_btn.button(
+            '🔄 Pre-fill with Gemini search',
+            help='Fetches approximate rates for this week via Gemini AI search. '
+                 'Override with actual Bloomberg values before generating.',
+            use_container_width=True,
+        )
+        if prefill_clicked:
+            if not api_key:
+                st.warning('Add a Gemini API key above to use pre-fill.')
+            else:
+                ws_str = datetime(w_start.year, w_start.month, w_start.day).strftime('%b %d, %Y')
+                we_str = datetime(w_end.year,   w_end.month,   w_end.day  ).strftime('%b %d, %Y')
+                with st.spinner('Fetching approximate FX rates via Gemini search…'):
+                    from macro_generator import get_fx_approximate_rates
+                    approx, fx_err = get_fx_approximate_rates(
+                        api_key, ws_str, we_str, selected_fx
+                    )
+                if fx_err and not approx:
+                    st.warning(f'Pre-fill failed: {fx_err}')
+                else:
+                    for pair, rates in approx.items():
+                        ss[f'fx_open_{pair}']  = rates['open']
+                        ss[f'fx_close_{pair}'] = rates['close']
+                    if fx_err:
+                        st.caption(f'⚠ Partial pre-fill: {fx_err}')
+                    st.rerun()
 
         hc1, hc2, hc3, hc4 = st.columns([2.5, 2, 2, 1.5])
         hc1.markdown('**Pair**')
@@ -252,23 +280,36 @@ def _step_review(api_key):
 
     # Pre-fill session state keys from AI data on first load
     if not ss.review_initialised:
+        # _nf: use Gemini value if it's a real number/string, else fall back to default.
+        # dict.get(k, default) only falls back when key is ABSENT — not when value is None.
+        # Gemini often returns null for unavailable fields, so we need explicit None checks.
+        def _nf(val, fallback):
+            if val is None or val == 'N/A' or val == '':
+                return fallback
+            try:
+                # For numeric fallbacks, ensure val can be coerced
+                if isinstance(fallback, float):
+                    return float(val)
+                return val
+            except (TypeError, ValueError):
+                return fallback
+
         defaults = {
-            'rev_dxy_close':    raw.get('dxy_close',    101.0),
-            'rev_dxy_wow':      raw.get('dxy_wow_val',   0.0),
-            'rev_us10y_close':  raw.get('us10y_close',   4.5),
-            'rev_us10y_wow':    raw.get('us10y_wow_val',  0.0),
-            'rev_in10y_close':  raw.get('in10y_close',   6.8),
-            'rev_in10y_wow':    raw.get('in10y_wow_val',  0.0),
-            'rev_brent_close':  raw.get('brent_close',   70.0),
-            'rev_brent_wow':    raw.get('brent_wow_val',  0.0),
-            'rev_gold_usd':     raw.get('gold_usd',    3200.0),
-            'rev_gold_wow':     raw.get('gold_wow_val',   0.0),
-            'rev_fed_rate':     raw.get('fed_rate',   '4.25-4.50%'),
-            'rev_rbi_rate':     raw.get('rbi_rate',    '6.00%'),
+            'rev_dxy_close':   _nf(raw.get('dxy_close'),    101.0),
+            'rev_dxy_wow':     _nf(raw.get('dxy_wow_val'),    0.0),
+            'rev_us10y_close': _nf(raw.get('us10y_close'),    4.5),
+            'rev_us10y_wow':   _nf(raw.get('us10y_wow_val'),  0.0),
+            'rev_in10y_close': _nf(raw.get('in10y_close'),    6.8),
+            'rev_in10y_wow':   _nf(raw.get('in10y_wow_val'),  0.0),
+            'rev_brent_close': _nf(raw.get('brent_close'),   70.0),
+            'rev_brent_wow':   _nf(raw.get('brent_wow_val'),  0.0),
+            'rev_gold_usd':    _nf(raw.get('gold_usd'),    3200.0),
+            'rev_gold_wow':    _nf(raw.get('gold_wow_val'),   0.0),
+            'rev_fed_rate':    _nf(raw.get('fed_rate'),  '4.25-4.50%'),
+            'rev_rbi_rate':    _nf(raw.get('rbi_rate'),     '6.00%'),
         }
         for k, v in defaults.items():
-            if k not in ss or not ss.review_initialised:
-                ss[k] = v
+            ss[k] = v
         ss.review_initialised = True
 
     st.markdown('**Edit any value before generating. All fields are pre-filled from Gemini search.**')
