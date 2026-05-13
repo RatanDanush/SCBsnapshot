@@ -1,0 +1,8 @@
+streamlit
+yfinance
+pandas
+numpy
+google-generativeai>=0.8.0
+python-dotenv
+weasyprint
+Pillow
