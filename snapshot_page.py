@@ -319,54 +319,42 @@ def _step_review(api_key):
     st.markdown('---')
     st.markdown('**DXY — Dollar Index**')
     c1, c2 = st.columns(2)
-    dxy_c   = c1.number_input('DXY close level', value=ss.get('rev_dxy_close', 101.0),
-                               format='%.2f', step=0.01, key='rev_dxy_close')
-    dxy_wow = c2.number_input('DXY WoW % change', value=ss.get('rev_dxy_wow', 0.0),
-                               format='%.2f', step=0.01, key='rev_dxy_wow')
+    dxy_c   = c1.number_input('DXY close level', format='%.2f', step=0.01, key='rev_dxy_close')
+    dxy_wow = c2.number_input('DXY WoW % change', format='%.2f', step=0.01, key='rev_dxy_wow')
 
     # ── Yields ──
     if ss.show_rates:
         st.markdown('---')
         st.markdown('**US 10Y Treasury**')
         c1, c2 = st.columns(2)
-        us10y_c   = c1.number_input('US 10Y close (%)', value=ss.get('rev_us10y_close', 4.5),
-                                     format='%.2f', step=0.01, key='rev_us10y_close')
-        us10y_wow = c2.number_input('US 10Y WoW change (bps)', value=ss.get('rev_us10y_wow', 0.0),
-                                     format='%.1f', step=0.5, key='rev_us10y_wow')
+        us10y_c   = c1.number_input('US 10Y close (%)', format='%.2f', step=0.01, key='rev_us10y_close')
+        us10y_wow = c2.number_input('US 10Y WoW change (bps)', format='%.1f', step=0.5, key='rev_us10y_wow')
 
         st.markdown('**India 10Y G-Sec (CCIL/FIMMDA)**')
         c3, c4 = st.columns(2)
-        in10y_c   = c3.number_input('India 10Y close (%)', value=ss.get('rev_in10y_close', 6.8),
-                                     format='%.2f', step=0.01, key='rev_in10y_close')
-        in10y_wow = c4.number_input('India 10Y WoW change (bps)', value=ss.get('rev_in10y_wow', 0.0),
-                                     format='%.1f', step=0.5, key='rev_in10y_wow')
+        in10y_c   = c3.number_input('India 10Y close (%)', format='%.2f', step=0.01, key='rev_in10y_close')
+        in10y_wow = c4.number_input('India 10Y WoW change (bps)', format='%.1f', step=0.5, key='rev_in10y_wow')
 
         st.markdown('**Policy Rates** (text — edit if changed)')
         c5, c6 = st.columns(2)
-        fed_rate = c5.text_input('Fed Funds Rate', value=ss.get('rev_fed_rate', '4.25-4.50%'),
-                                  key='rev_fed_rate')
-        rbi_rate = c6.text_input('RBI Repo Rate',  value=ss.get('rev_rbi_rate', '6.00%'),
-                                  key='rev_rbi_rate')
+        fed_rate = c5.text_input('Fed Funds Rate', key='rev_fed_rate')
+        rbi_rate = c6.text_input('RBI Repo Rate',  key='rev_rbi_rate')
 
     # ── Brent ──
     if ss.show_oil:
         st.markdown('---')
         st.markdown('**Brent Crude**')
         c1, c2 = st.columns(2)
-        brent_c   = c1.number_input('Brent close (USD/bbl)', value=ss.get('rev_brent_close', 70.0),
-                                     format='%.2f', step=0.01, key='rev_brent_close')
-        brent_wow = c2.number_input('Brent WoW % change', value=ss.get('rev_brent_wow', 0.0),
-                                     format='%.2f', step=0.01, key='rev_brent_wow')
+        brent_c   = c1.number_input('Brent close (USD/bbl)', format='%.2f', step=0.01, key='rev_brent_close')
+        brent_wow = c2.number_input('Brent WoW % change', format='%.2f', step=0.01, key='rev_brent_wow')
 
     # ── Gold ──
     if ss.show_gold:
         st.markdown('---')
         st.markdown('**Gold XAU/USD**')
         c1, c2 = st.columns(2)
-        gold_c   = c1.number_input('Gold close (USD/oz)', value=ss.get('rev_gold_usd', 3200.0),
-                                    format='%.0f', step=1.0, key='rev_gold_usd')
-        gold_wow = c2.number_input('Gold WoW % change', value=ss.get('rev_gold_wow', 0.0),
-                                    format='%.2f', step=0.01, key='rev_gold_wow')
+        gold_c   = c1.number_input('Gold close (USD/oz)', format='%.0f', step=1.0, key='rev_gold_usd')
+        gold_wow = c2.number_input('Gold WoW % change', format='%.2f', step=0.01, key='rev_gold_wow')
 
     st.markdown('---')
     generate_clicked = st.button('🏗 Generate Snapshot →', type='primary', use_container_width=True)

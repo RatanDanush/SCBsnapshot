@@ -14,7 +14,8 @@
 #              500 RPD first — preserves INTENSIVE budget
 
 import json, re, time
-import google.generativeai as genai
+from google import genai
+from google.genai import types
 
 # ── Model tiers ────────────────────────────────────────────────────────────────
 
@@ -25,34 +26,26 @@ LIGHT     = ['gemini-3.1-flash-lite', 'gemini-2.5-flash-lite']
 SKIP_ERRORS = ('429', '404', 'quota', 'limit: 0', 'not found',
                'not supported', 'RESOURCE_EXHAUSTED')
 
-def _search_tool():
-    try:
-        from google.generativeai import protos
-        return protos.Tool(google_search=protos.GoogleSearch())
-    except AttributeError:
-        pass
-    try:
-        from google.generativeai import protos
-        return protos.Tool(google_search_retrieval=protos.GoogleSearchRetrieval())
-    except Exception:
-        return None
-
 def _call_tier(api_key, tier_models, prompt, use_search=False):
     """
-    Try each model in tier_models order.
+    Try each model in tier_models order (google-genai SDK).
     Skips on quota/availability errors; stops on auth/other errors.
     Returns (text, model_used, elapsed_s, error_or_None).
     """
-    genai.configure(api_key=api_key)
-    tool  = _search_tool() if use_search else None
-    tools = [tool] if tool else []
-    all_errors = []
+    client = genai.Client(api_key=api_key)
 
+    tools  = [types.Tool(google_search=types.GoogleSearch())] if use_search else []
+    config = types.GenerateContentConfig(tools=tools) if tools else None
+
+    all_errors = []
     for model_name in tier_models:
         try:
-            m  = genai.GenerativeModel(model_name=model_name, tools=tools)
             t0 = time.time()
-            r  = m.generate_content(prompt)
+            r  = client.models.generate_content(
+                model=model_name,
+                contents=prompt,
+                config=config,
+            )
             return r.text, model_name, round(time.time() - t0, 1), None
         except Exception as e:
             err = str(e)
